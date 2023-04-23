@@ -4,7 +4,6 @@ use std::{fs::File, fmt::format};
 use serde::{Serialize, Deserialize};
 use bincode::{config, serialize, deserialize};
 
-
 fn dot_product(a:&Vec<f64>, b:&Vec<f64>) -> f64 {
     a.iter()
         .zip(b)
@@ -13,7 +12,7 @@ fn dot_product(a:&Vec<f64>, b:&Vec<f64>) -> f64 {
 }
 
 /// Memory struct for memories to be stored
-#[pyclass]
+#[pyclass(subclass)]
 #[derive(Clone)]
 struct Memory {
     text: String,
@@ -41,18 +40,18 @@ impl Memory {
 
     fn __repr__(&self) -> String {
         // Just the text of the function
-        format!("Embedding vector of length {}\n with text: {}", self.embed_size, self.text)
+        format!("Text: {}\nEmbedding vector with length: {}", self.text, self.embed_size)
     }
 
-    fn get_text(&self) -> String {
+    fn _get_text(&self) -> String {
         self.text.clone()
     }
 
-    fn get_embedding(&self) -> Vec<f64> {
+    fn _get_embedding(&self) -> Vec<f64> {
         self.embedding.clone()
     }
 
-    fn compare(&self, other: &Memory) -> f64 {
+    fn _compare(&self, other: &Memory) -> f64 {
         // cosine similarity calculations
         assert_eq!(self.embed_size, other.embed_size);
         dot_product(&self.embedding, &other.embedding) / (self.magnitude * other.magnitude)
@@ -60,7 +59,7 @@ impl Memory {
 }
 
 
-#[pyclass(get_all, dict, sequence)]
+#[pyclass(get_all, dict, sequence, subclass)]
 struct MemoryStore {
     memories: Vec<Memory>, 
     embedding_size: usize
@@ -96,7 +95,7 @@ impl MemoryStore {
             .filter_map(|memory| {
                 if must_include_text.is_none() ||
                 memory.text.to_lowercase().contains(&(must_include_text.unwrap().to_lowercase())) {
-                    Some((query.compare(memory), memory.clone()))
+                    Some((query._compare(memory), memory.clone()))
                 } else {None}
             }).collect::<Vec<(f64, Memory)>>();
 
@@ -108,9 +107,10 @@ impl MemoryStore {
 }
 
 
-// #[pymodule]
-// fn modular_memory(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
-//     m.add_class::<Memory>()?;
-//     m.add_class::<MemoryStore>()?;
-//     Ok(())
-// }
+#[pymodule]
+fn vector_memory(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
+    m.add_class::<Memory>()?;
+    m.add_class::<MemoryStore>()?;
+    m.add("__all__", vec!["Memory", "MemoryStore"])?;
+    Ok(())
+}

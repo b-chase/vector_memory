@@ -9,7 +9,7 @@ __pycache__/
 *.so
 
 # testing and other files
-test.py
+# test.py
 
 # Distribution / packaging
 .Python
