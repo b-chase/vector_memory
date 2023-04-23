@@ -12,7 +12,7 @@ class VMemory(_rust_mem):
             embedding ([float]): 
             embed_vector_len (int, optional): Force the length of embedding vector by truncating or padding with zeroes. Defaults to None.
         """
-        super().__init__(text, embedding, embed_vector_len)
+        super().__init__()
     
     def get_text(self) -> str :
         return self.text
@@ -22,7 +22,7 @@ class VMemory(_rust_mem):
         return self.embedding
     
     def similarity(self, other_memory) -> float:
-        self._compare(other_memory)
+        return self._compare(other_memory)
         
     
     
