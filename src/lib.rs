@@ -70,6 +70,7 @@ impl MemoryStore {
     #[new]
     fn new(embedding_length: usize, initial_memories: Option<Vec<Memory>>) -> Self {
         // if initial_memories
+        // println!("Debug Rust: found initial memories of length: {}", &(initial_memories.clone().unwrap_or(Vec::new()).len()));
         MemoryStore { 
             memories: initial_memories.unwrap_or(Vec::new()), 
             embedding_size: embedding_length
@@ -80,13 +81,12 @@ impl MemoryStore {
         self.memories.len()
     }
 
-    #[pyo3(signature=(*args))]
-    fn add_memories(&mut self, args: Vec<Memory>) {
+    fn _add_memory(&mut self, memory_to_add: Memory) {
         // let new_memory = Memory::new(text, numbers);
-        self.memories.extend_from_slice(args.as_slice());
+        self.memories.push(memory_to_add.clone());
     }
 
-    fn top_n_matches(&mut self, query: &Memory, n: usize, must_include_text: Option<&str>) -> Vec<(f64,Memory)> {
+    fn _top_n_matches(&mut self, query: &Memory, n: usize, must_include_text: Option<&str>) -> Vec<(f64,Memory)> {
         /*
             Returns the top 'n' Memories by cosine similarity of their embedding vectors to the supplied 'query' memory.
             Optionally include a must-have text string, 'must_include_text', to filter results before searching.

@@ -3,7 +3,7 @@ from .vector_memory import Memory as _rust_mem
 from .vector_memory import MemoryStore as _rust_mem_store
 
 # Define memory class and available methods
-class VMemory(_rust_mem):
+class Memory(_rust_mem):
     def __init__(self, text: str, embedding: list[float], embed_vector_len:int=None):
         """A unit of stored context or "memory", including its numerical representation, or "embedding".
 
@@ -23,12 +23,56 @@ class VMemory(_rust_mem):
     
     def similarity(self, other_memory) -> float:
         return self._compare(other_memory)
+
+
+
+class MemoryBank(_rust_mem_store):
+    def __init__(self: super, embedding_size, memories: list[Memory] = []):
+        """A bank of 'memories', text with associated vector embeddings, for easy search and retrieval.
+
+        Args:
+            embedding_size (int): The length of memories being added to the store, will force new memories to have this length
+            memories (list[Memory], optional): A list of starter memories
+        """
+        super().__init__()
+    
+    def __iter__(self):
+        for mem in self.memories:
+            yield mem
+    
+    def add_memory(self, memory: Memory):
+        """_summary_
+
+        Args:
+            memories (Memory): memories to add 
+        """
+        self._add_memory(memory)
+
+    def add_memories(self, *args):
+        """_summary_
+
+        Args:
+            memory (Memory): _description_
+        """
+        mems_to_add = []
+        for item in args:
+            if hasattr(item, '__iter__'):
+                self.add_memories(item)
+            elif isinstance(item, Memory):
+                mems_to_add.append(item)
+            else:
+                print(f"WARNING: this item is not of class Memory and is being skipped:\n{item}")
         
+        for mem in mems_to_add:
+            print(f"Adding new memory:\n{mem}\n")
+            self._add_memory(mem)
+
     
-    
-    
-    
-    
-    
-    
+    def search_memories_like(self, query_memory: Memory, top_n=5):
+        """Returns similar memories to the query memory, default returns 5
+
+        Returns:
+            list[Memory]: The top matches.
+        """
+        return self._top_n_matches(query_memory, top_n)
     
