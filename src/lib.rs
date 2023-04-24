@@ -1,8 +1,5 @@
-use pyo3::{prelude::*, exceptions::PyWarning, types::PyList};
+use pyo3::prelude::*;
 use rayon::prelude::*;
-use std::{fs::File, fmt::format};
-use serde::{Serialize, Deserialize};
-use bincode::{config, serialize, deserialize};
 
 fn dot_product(a:&Vec<f64>, b:&Vec<f64>) -> f64 {
     a.iter()
@@ -24,8 +21,8 @@ struct Memory {
 #[pymethods]
 impl Memory {
     #[new]
-    fn new(text: String, embed_vector: Vec<f64>, embedding_size: Option<usize>) -> Self {
-        let resize_to = embedding_size.unwrap_or(embed_vector.len());
+    fn new(text: String, embed_vector: Vec<f64>, embedding_length: Option<usize>) -> Self {
+        let resize_to = embedding_length.unwrap_or(embed_vector.len());
         let mut fixed_embedding = embed_vector.clone();
         fixed_embedding.resize_with(resize_to, Default::default);
         let mag = dot_product(&fixed_embedding, &fixed_embedding).powf(0.5);
@@ -62,7 +59,7 @@ impl Memory {
 #[pyclass(get_all, dict, sequence, subclass)]
 struct MemoryStore {
     memories: Vec<Memory>, 
-    embedding_size: usize
+    embedding_length: usize
 }
 
 #[pymethods]
@@ -72,8 +69,8 @@ impl MemoryStore {
         // if initial_memories
         // println!("Debug Rust: found initial memories of length: {}", &(initial_memories.clone().unwrap_or(Vec::new()).len()));
         MemoryStore { 
-            memories: initial_memories.unwrap_or(Vec::new()), 
-            embedding_size: embedding_length
+            embedding_length: embedding_length, 
+            memories: initial_memories.unwrap_or(Vec::new())
         }
     }
 
@@ -83,7 +80,9 @@ impl MemoryStore {
 
     fn _add_memory(&mut self, memory_to_add: Memory) {
         // let new_memory = Memory::new(text, numbers);
-        self.memories.push(memory_to_add.clone());
+        let mut resized = memory_to_add.clone();
+        resized.embedding.resize_with(self.embedding_length, || 0.0);
+        self.memories.push(resized);
     }
 
     fn _top_n_matches(&mut self, query: &Memory, n: usize, must_include_text: Option<&str>) -> Vec<(f64,Memory)> {
