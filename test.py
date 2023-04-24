@@ -8,12 +8,12 @@ y = vm.Memory('blehbleh', [1, 0, 3])
 print(x)
 print(y)
 
-s = vm.MemoryBank(3)
-s.add_memories(x, y)
+s = vm.MemoryBank(3, [x, y])
+# s.add_memories(x, y)
 
+print(f"Memory store has {len(s)} memories")
 for mem in s:
     print("Memories stored iterated: ",mem)
-print(f"Memory store has {len(s)} memories")
 
 
 z = vm.Memory('teehee', [1, 0, 2.5])
