@@ -16,7 +16,6 @@ class Memory(_rust_mem):
     
     def get_text(self) -> str :
         return self.text
-    
 
     def get_embedding(self) -> list[float]:
         return self.embedding
@@ -27,14 +26,15 @@ class Memory(_rust_mem):
 
 
 class MemoryBank(_rust_mem_store):
-    def __init__(self: super, embedding_size, memories: list[Memory] = []):
+    def __init__(self: super, embedding_length, initial_memories: list[Memory]):
         """A bank of 'memories', text with associated vector embeddings, for easy search and retrieval.
 
         Args:
-            embedding_size (int): The length of memories being added to the store, will force new memories to have this length
+            embedding_length (int): The length of memories being added to the store, will force new memories to have this length
             memories (list[Memory], optional): A list of starter memories
         """
         super().__init__()
+        
     
     def __iter__(self):
         for mem in self.memories:
@@ -46,10 +46,12 @@ class MemoryBank(_rust_mem_store):
         Args:
             memories (Memory): memories to add 
         """
+        if len(memory.get_embedding) != self.embedding_length:
+            print("\nWarning! Received embedding of wrong size. Saved result will be a truncated or padded vector.\n")
         self._add_memory(memory)
 
     def add_memories(self, *args):
-        """_summary_
+        """Adds new memories to the memory store.
 
         Args:
             memory (Memory): _description_
@@ -68,11 +70,11 @@ class MemoryBank(_rust_mem_store):
             self._add_memory(mem)
 
     
-    def search_memories_like(self, query_memory: Memory, top_n=5):
+    def search_memories_like(self, query_memory: Memory, top_n=5, must_include_text: str = None):
         """Returns similar memories to the query memory, default returns 5
 
         Returns:
             list[Memory]: The top matches.
         """
-        return self._top_n_matches(query_memory, top_n)
+        return self._top_n_matches(query_memory, top_n, must_include_text)
     
