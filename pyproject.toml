@@ -14,3 +14,6 @@ classifiers = [
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
+
+[dependencies]
+sentence_transformers = "2.2.2"

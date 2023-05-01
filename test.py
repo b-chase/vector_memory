@@ -5,8 +5,6 @@ import numpy as np
 import torch
 import timeit
 
-
-
 embedding_model = SentenceTransformer('sentence-transformers/all-roberta-large-v1',)
 embedding_lengths = 1024
 
@@ -22,6 +20,8 @@ for i in range(6) :
             show_progress_bar=True, 
             # convert_to_numpy=True
         )
+        print(embedding)
+        quit()
         mem = Memory(text, embedding)
         memory_list.append(mem)
         bank.add_memory(mem)

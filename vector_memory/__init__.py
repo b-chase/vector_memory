@@ -27,7 +27,7 @@ class Memory(_rust_mem):
 
 
 class MemoryBank(_rust_mem_store):
-    def __init__(self: super, embedding_length, initial_memories: list[Memory]=[]):
+    def __init__(self: super, embedding_length, save_folder_path:str=None, initial_memories: list[Memory]=[]):
         """A bank of 'memories', text with associated vector embeddings, for easy search and retrieval.
 
         Args:

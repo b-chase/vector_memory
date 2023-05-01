@@ -1,8 +1,10 @@
 use pyo3::prelude::*;
 use rayon::prelude::*;
+use std::io::{Write, Read};
 use std::fs::File;
-use std::io::prelude::*;
+// use serde::{Serialize, Deserialize};
 use std::path::Path;
+use std::collections::HashMap;
 
 
 fn dot_product(a:&Vec<f64>, b:&Vec<f64>) -> f64 {
@@ -12,13 +14,43 @@ fn dot_product(a:&Vec<f64>, b:&Vec<f64>) -> f64 {
         .sum::<f64>()
 }
 
+static COMPRESSION_MAP: [char; 65] = [
+    '0', '1', '2', '3', '4', '5', '6', '7', 
+    '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 
+    'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 
+    'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 
+    'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 
+    'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 
+    'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 
+    'u', 'v', 'w', 'x', 'y', 'z', '-', '_',
+    ' '
+];
+
+
+fn compress_embedding(input_embedding: &Vec<f64>) -> String {
+    // takes vector of float64s as input, outputs the vector compressed down to a text string that can be used as a filename    
+    let n = input_embedding.len();
+
+    let compressed_to_string: String = input_embedding.par_chunks(64)
+        .map(|chunk_x| -> char {
+            let index: usize = chunk_x.iter().map(|x| if x.is_sign_positive() {1} else {0}).sum();
+            COMPRESSION_MAP[index]
+        })
+        .collect();
+
+    compressed_to_string
+
+}
+
 /// Memory struct for memories to be stored
+// #[derive(Serialize, Deserialize)]
 #[pyclass(subclass)]
 #[derive(Clone)]
 struct Memory {
     text: String,
     embed_size: usize, 
     embedding: Vec<f64>, 
+    compressed_name: String, 
     magnitude: f64
 }
 
@@ -30,13 +62,16 @@ impl Memory {
         let mut fixed_embedding = embed_vector.clone();
         fixed_embedding.resize_with(resize_to, Default::default);
         let mag = dot_product(&fixed_embedding, &fixed_embedding).powf(0.5);
+        let compressed_name = compress_embedding(&fixed_embedding);
 
         Memory {
             text: text, 
             embed_size: resize_to, 
             embedding: fixed_embedding, 
+            compressed_name: compressed_name, 
             magnitude: mag
         }
+
     }
 
     fn __repr__(&self) -> String {
@@ -64,34 +99,21 @@ impl Memory {
 struct MemoryStore {
     memories: Vec<Memory>, 
     embedding_length: usize, 
-    file_path: Option<String>
+    save_path: Option<String>
 }
 
 #[pymethods]
 impl MemoryStore {
     #[new]
-    fn new(embedding_length: usize, file_path:Option<String>, initial_memories: Option<Vec<Memory>>) -> Self {
+    fn new(embedding_length: usize, initial_memories: Option<Vec<Memory>>, save_path: Option<String>) -> Self {
         // if initial_memories
         // println!("Debug Rust: found initial memories of length: {}", &(initial_memories.clone().unwrap_or(Vec::new()).len()));
         MemoryStore { 
             embedding_length: embedding_length, 
             memories: initial_memories.unwrap_or(Vec::new()), 
-            file_path: file_path
+            save_path: save_path
         }
     }
-
-    fn save_to_file(&self, filename: Option<String>) {
-        let mut save_path: &str;
-        if filename.is_some() {
-            save_path = &filename.unwrap();
-            self.file_path = save_path.clone()
-        } else if self.file_path.is_some() {
-            save_path = &self.file_path
-        } else {
-            
-        }
-    }
-
 
     fn __len__(&self) -> usize {
         self.memories.len()
