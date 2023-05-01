@@ -75,7 +75,7 @@ class MemoryBank(_rust_mem_store):
         """Returns similar memories to the query memory, default returns 5
 
         Returns:
-            list[(similarity_score, Memory)]: The top matches, sorted in descending order, including score.
+            list[Memory]: The top matches.
         """
         return self._top_n_matches(query_memory, top_n, must_include_text)
     

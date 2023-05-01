@@ -1,9 +1,5 @@
 use pyo3::prelude::*;
 use rayon::prelude::*;
-use std::fs::File;
-use std::io::prelude::*;
-use std::path::Path;
-
 
 fn dot_product(a:&Vec<f64>, b:&Vec<f64>) -> f64 {
     a.iter()
@@ -63,35 +59,20 @@ impl Memory {
 #[pyclass(get_all, dict, sequence, subclass)]
 struct MemoryStore {
     memories: Vec<Memory>, 
-    embedding_length: usize, 
-    file_path: Option<String>
+    embedding_length: usize
 }
 
 #[pymethods]
 impl MemoryStore {
     #[new]
-    fn new(embedding_length: usize, file_path:Option<String>, initial_memories: Option<Vec<Memory>>) -> Self {
+    fn new(embedding_length: usize, initial_memories: Option<Vec<Memory>>) -> Self {
         // if initial_memories
         // println!("Debug Rust: found initial memories of length: {}", &(initial_memories.clone().unwrap_or(Vec::new()).len()));
         MemoryStore { 
             embedding_length: embedding_length, 
-            memories: initial_memories.unwrap_or(Vec::new()), 
-            file_path: file_path
+            memories: initial_memories.unwrap_or(Vec::new())
         }
     }
-
-    fn save_to_file(&self, filename: Option<String>) {
-        let mut save_path: &str;
-        if filename.is_some() {
-            save_path = &filename.unwrap();
-            self.file_path = save_path.clone()
-        } else if self.file_path.is_some() {
-            save_path = &self.file_path
-        } else {
-            
-        }
-    }
-
 
     fn __len__(&self) -> usize {
         self.memories.len()
