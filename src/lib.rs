@@ -2,7 +2,8 @@ use pyo3::prelude::*;
 use rayon::prelude::*;
 use std::io::{Write, Read};
 use std::fs::File;
-// use serde::{Serialize, Deserialize};
+use std::ops::Deref;
+use serde::{Serialize, Deserialize};
 use std::path::Path;
 use std::collections::HashMap;
 
@@ -46,6 +47,7 @@ fn compress_embedding(input_embedding: &Vec<f64>) -> String {
 // #[derive(Serialize, Deserialize)]
 #[pyclass(subclass)]
 #[derive(Clone)]
+#[derive(Serialize, Deserialize, Debug)]
 struct Memory {
     text: String,
     embed_size: usize, 
@@ -117,6 +119,26 @@ impl MemoryStore {
 
     fn __len__(&self) -> usize {
         self.memories.len()
+    }
+
+    fn _save_memories(&self) {
+        // saves memories to the given directory
+        assert!(self.save_path.is_some(), "ERROR! This memory store has no specified save location!");
+
+        let mem_dir_str = self.save_path.as_ref().unwrap();
+        if Path::exists(Path::new(&mem_dir_str)) {
+            for mem in self.memories.iter() {
+                let file_name = compress_embedding(&mem.embedding);
+                let file_path = Path::new(&format!("{}/{}.vmem", mem_dir_str, &file_name));
+                let save_file = File::create(&file_path).unwrap();
+                let json_repr = serde_json::to_string()
+            }
+        }
+        
+
+
+
+
     }
 
     fn _add_memory(&mut self, memory_to_add: Memory) {
