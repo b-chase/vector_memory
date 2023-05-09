@@ -1,11 +1,10 @@
 use pyo3::prelude::*;
 use rayon::prelude::*;
-use std::io::{Write, Read};
+use std::io::Write;
 use std::fs::File;
-use std::ops::Deref;
 use serde::{Serialize, Deserialize};
+use bincode::{serialize, deserialize_from};
 use std::path::Path;
-use std::collections::HashMap;
 
 
 fn dot_product(a:&Vec<f64>, b:&Vec<f64>) -> f64 {
@@ -15,7 +14,9 @@ fn dot_product(a:&Vec<f64>, b:&Vec<f64>) -> f64 {
         .sum::<f64>()
 }
 
-static COMPRESSION_MAP: [char; 65] = [
+const COMPRESSION_MAP_SIZE: usize = 65;
+
+static COMPRESSION_MAP: [char; COMPRESSION_MAP_SIZE] = [
     '0', '1', '2', '3', '4', '5', '6', '7', 
     '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 
     'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 
@@ -30,9 +31,9 @@ static COMPRESSION_MAP: [char; 65] = [
 
 fn compress_embedding(input_embedding: &Vec<f64>) -> String {
     // takes vector of float64s as input, outputs the vector compressed down to a text string that can be used as a filename    
-    let n = input_embedding.len();
+    // let n = input_embedding.len();
 
-    let compressed_to_string: String = input_embedding.par_chunks(64)
+    let compressed_to_string: String = input_embedding.par_chunks(COMPRESSION_MAP_SIZE-1)
         .map(|chunk_x| -> char {
             let index: usize = chunk_x.iter().map(|x| if x.is_sign_positive() {1} else {0}).sum();
             COMPRESSION_MAP[index]
@@ -46,8 +47,7 @@ fn compress_embedding(input_embedding: &Vec<f64>) -> String {
 /// Memory struct for memories to be stored
 // #[derive(Serialize, Deserialize)]
 #[pyclass(subclass)]
-#[derive(Clone)]
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 struct Memory {
     text: String,
     embed_size: usize, 
@@ -121,7 +121,7 @@ impl MemoryStore {
         self.memories.len()
     }
 
-    fn _save_memories(&self) {
+    fn _save_memories(&self) -> std::io::Result<()> {
         // saves memories to the given directory
         assert!(self.save_path.is_some(), "ERROR! This memory store has no specified save location!");
 
@@ -129,16 +129,39 @@ impl MemoryStore {
         if Path::exists(Path::new(&mem_dir_str)) {
             for mem in self.memories.iter() {
                 let file_name = compress_embedding(&mem.embedding);
-                let file_path = Path::new(&format!("{}/{}.vmem", mem_dir_str, &file_name));
-                let save_file = File::create(&file_path).unwrap();
-                let json_repr = serde_json::to_string()
+                let file_path_str = format!("{}/{}.vmem", &mem_dir_str, &file_name);
+                let file_path = Path::new(&file_path_str);
+                let mut save_file = File::create(file_path)?;
+                
+                if let Ok(encoded_mem) = serialize(&mem) {
+                    match save_file.write_all(encoded_mem.as_slice()) {
+                        Ok(()) => (), 
+                        Err(save_result) => eprintln!("Error saving memory to file {}. Error msg:\n{:?}", file_path_str, save_result)
+                    };
+                }
             }
         }
-        
+        Ok(())
+    }
 
+    fn _load_memories(&mut self, from_dir: Option<String>) -> std::io::Result<()> {
 
+        let mem_dir_str = match from_dir {
+            Some(dir_string) => dir_string,
+            None => if let Some(self_dir) = &self.save_path {String::from(self_dir)} else {String::from("default_memory_folder")}
+        };
 
+        let mem_files = Path::new(&mem_dir_str).read_dir()?;
 
+        for memf in mem_files {
+            let mem_file = File::open(memf.unwrap().path())?;
+            let deserialized = deserialize_from(mem_file);
+            match deserialized {
+                Ok(deserialized_memory) => self._add_memory(deserialized_memory),
+                Err(e) => eprintln!("Error loading memory from file '{}'. Error message:\n{:?}", mem_dir_str, e)
+            }
+        }
+        Ok(())
     }
 
     fn _add_memory(&mut self, memory_to_add: Memory) {
