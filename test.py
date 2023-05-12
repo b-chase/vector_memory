@@ -5,8 +5,9 @@ import numpy as np
 import torch
 import timeit
 
-embedding_model = SentenceTransformer('sentence-transformers/all-roberta-large-v1',)
-embedding_lengths = 1024
+embedding_model_name = 'sentence-transformers/paraphrase-albert-small-v2'
+embedding_model = SentenceTransformer(embedding_model_name)
+embedding_lengths = 768
 
 bank = MemoryBank(embedding_lengths)
 
@@ -20,13 +21,13 @@ for i in range(6) :
             show_progress_bar=True, 
             # convert_to_numpy=True
         )
-        print(embedding)
-        quit()
+        # print(embedding)
+        # quit()
         mem = Memory(text, embedding)
         memory_list.append(mem)
         bank.add_memory(mem)
         
-        print(f'\nFile {f.name} gives embedding of length {len(embedding)}:\n{embedding}')
+        print(f'\nFile {f.name} gives embedding of length {len(embedding)}')
 
 
 def test_rust_similarity():
@@ -47,6 +48,15 @@ def test_torch_similarity():
     return results
 
 
-print("Testing rust simliarity calcs:", timeit.timeit("test_rust_similarity()", globals=locals(), number=100))
-print("Testing torch similarity calcs:", timeit.timeit("test_torch_similarity()", globals=locals(), number=100))
+# print("Testing rust simliarity calcs: {} seconds".format(timeit.timeit("test_rust_similarity()", globals=locals(), number=100)))
+# print("Testing torch similarity calcs: {} seconds".format(timeit.timeit("test_torch_similarity()", globals=locals(), number=100)))
 
+table = np.zeros((6,6))
+
+for i in range(6):
+    for j in range(i,6):
+        table[i,j] = memory_list[i].test_similarity(memory_list[j])
+
+print(table)
+
+bank.save_memories('test_memory_bank')

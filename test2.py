@@ -9,8 +9,9 @@ from collections import Counter
 random.seed(42)
 
 
-embedding_model = SentenceTransformer('sentence-transformers/all-roberta-large-v1',)
-embedding_lengths = 1024
+embedding_model_name = 'sentence-transformers/paraphrase-albert-small-v2'
+embedding_model = SentenceTransformer(embedding_model_name)
+embedding_lengths = 768
 
 bank = MemoryBank(embedding_lengths)
 

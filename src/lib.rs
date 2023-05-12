@@ -1,6 +1,7 @@
 use pyo3::prelude::*;
 use rayon::prelude::*;
-use std::io::Write;
+use std::error::Error;
+use std::{io::Write, fs};
 use std::fs::File;
 use serde::{Serialize, Deserialize};
 use bincode::{serialize, deserialize_from};
@@ -121,30 +122,33 @@ impl MemoryStore {
         self.memories.len()
     }
 
-    fn _save_memories(&self) -> std::io::Result<()> {
+    fn _save_memories(&self, save_dir: Option<String>) -> std::io::Result<()> {
         // saves memories to the given directory
-        assert!(self.save_path.is_some(), "ERROR! This memory store has no specified save location!");
+        let directory_path_str = if save_dir.is_some() {save_dir} else {self.save_path.clone()};
+        assert!(directory_path_str.is_some(), "ERROR! This memory store has no specified save location!");
 
-        let mem_dir_str = self.save_path.as_ref().unwrap();
-        if Path::exists(Path::new(&mem_dir_str)) {
-            for mem in self.memories.iter() {
-                let file_name = compress_embedding(&mem.embedding);
-                let file_path_str = format!("{}/{}.vmem", &mem_dir_str, &file_name);
-                let file_path = Path::new(&file_path_str);
-                let mut save_file = File::create(file_path)?;
-                
-                if let Ok(encoded_mem) = serialize(&mem) {
-                    match save_file.write_all(encoded_mem.as_slice()) {
-                        Ok(()) => (), 
-                        Err(save_result) => eprintln!("Error saving memory to file {}. Error msg:\n{:?}", file_path_str, save_result)
-                    };
-                }
+        let mem_dir_str = directory_path_str.as_ref().unwrap();
+        if !Path::exists(Path::new(&mem_dir_str)) {
+            let _ = fs::create_dir(mem_dir_str);
+        }
+        for mem in self.memories.iter() {
+            let file_name = compress_embedding(&mem.embedding);
+            let file_path_str = format!("{}/{}.vmem", &mem_dir_str, &file_name);
+            let file_path = Path::new(&file_path_str);
+            let mut save_file = File::create(file_path)?;
+            
+            if let Ok(encoded_mem) = serialize(&mem) {
+                match save_file.write_all(encoded_mem.as_slice()) {
+                    Ok(()) => println!("Succesfully saved file: {:?}", file_path.as_os_str()), 
+                    Err(save_result) => eprintln!("Error saving memory to file {}. Error msg:\n{:?}", file_path_str, save_result)
+                };
             }
         }
+
         Ok(())
     }
 
-    fn _load_memories(&mut self, from_dir: Option<String>) -> std::io::Result<()> {
+    fn _load_memories(&mut self, from_dir: Option<String>) -> Result<Vec<Memory>, PyErr> {
 
         let mem_dir_str = match from_dir {
             Some(dir_string) => dir_string,
@@ -152,16 +156,20 @@ impl MemoryStore {
         };
 
         let mem_files = Path::new(&mem_dir_str).read_dir()?;
-
+    
+        let mut mem_vec = Vec::new();
+    
         for memf in mem_files {
             let mem_file = File::open(memf.unwrap().path())?;
-            let deserialized = deserialize_from(mem_file);
+            let deserialized = deserialize_from::<File>(mem_file);
             match deserialized {
-                Ok(deserialized_memory) => self._add_memory(deserialized_memory),
+                Ok(deserialized_memory) => {
+                    self._add_memory(deserialized_memory.clone()); 
+                    mem_vec.push(deserialized_memory.clone())},
                 Err(e) => eprintln!("Error loading memory from file '{}'. Error message:\n{:?}", mem_dir_str, e)
             }
         }
-        Ok(())
+        Ok(mem_vec)
     }
 
     fn _add_memory(&mut self, memory_to_add: Memory) {

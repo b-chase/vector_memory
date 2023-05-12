@@ -14,6 +14,7 @@ __pycache__/
 # Distribution / packaging
 .Python
 .venv/
+test_memory_bank/
 env/
 bin/
 build/
@@ -73,3 +74,4 @@ docs/_build/
 
 # Pyenv
 .python-version
+Cargo.lock

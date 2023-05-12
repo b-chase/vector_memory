@@ -40,6 +40,15 @@ class MemoryBank(_rust_mem_store):
     def __iter__(self):
         for mem in self.memories:
             yield mem
+
+    def load_memories(self, directory_path=None):
+        mem_vec = self._load_memories(directory_path)
+        for mem in mem_vec:
+            self.add_memory(mem)
+
+    def save_memories(self, directory_path=None):
+        self._save_memories(directory_path)
+
     
     def add_memory(self, memory: Memory):
         """_summary_
