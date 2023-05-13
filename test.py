@@ -60,3 +60,15 @@ for i in range(6):
 print(table)
 
 bank.save_memories('test_memory_bank')
+
+bank2 = MemoryBank(embedding_lengths, bank.get_save_file_dir())
+
+bank2.load_memories()
+
+bank2_list = [mem for mem in bank2]
+
+table = np.zeros((6,6))
+
+for i in range(6):
+    for j in range(i,6):
+        table[i,j] = bank2_list[i].test_similarity(bank2_list[j])

@@ -1,6 +1,6 @@
-use pyo3::prelude::*;
+use pyo3::{prelude::*};
+use pyo3::types::{PyString, PyList};
 use rayon::prelude::*;
-use std::error::Error;
 use std::{io::Write, fs};
 use std::fs::File;
 use serde::{Serialize, Deserialize};
@@ -82,12 +82,12 @@ impl Memory {
         format!("Text: {}\nEmbedding vector with length: {}", self.text, self.embed_size)
     }
 
-    fn _get_text(&self) -> String {
-        self.text.clone()
+    fn _get_text(&self) -> PyResult<String> {
+        PyResult::Ok(self.text.clone())
     }
 
-    fn _get_embedding(&self) -> Vec<f64> {
-        self.embedding.clone()
+    fn _get_embedding(&self) -> PyResult<Vec<f64>> {
+        PyResult::Ok(self.embedding.clone())
     }
 
     fn _compare(&self, other: &Memory) -> f64 {
@@ -108,12 +108,12 @@ struct MemoryStore {
 #[pymethods]
 impl MemoryStore {
     #[new]
-    fn new(embedding_length: usize, initial_memories: Option<Vec<Memory>>, save_path: Option<String>) -> Self {
+    fn new(embedding_length: usize, save_path: Option<String>) -> Self {
         // if initial_memories
         // println!("Debug Rust: found initial memories of length: {}", &(initial_memories.clone().unwrap_or(Vec::new()).len()));
         MemoryStore { 
             embedding_length: embedding_length, 
-            memories: initial_memories.unwrap_or(Vec::new()), 
+            memories: Vec::new(), 
             save_path: save_path
         }
     }
@@ -148,7 +148,7 @@ impl MemoryStore {
         Ok(())
     }
 
-    fn _load_memories(&mut self, from_dir: Option<String>) -> Result<Vec<Memory>, PyErr> {
+    fn _load_memories(&mut self, from_dir: Option<String>, ) -> std::io::Result<()> {
 
         let mem_dir_str = match from_dir {
             Some(dir_string) => dir_string,
@@ -157,19 +157,15 @@ impl MemoryStore {
 
         let mem_files = Path::new(&mem_dir_str).read_dir()?;
     
-        let mut mem_vec = Vec::new();
-    
         for memf in mem_files {
             let mem_file = File::open(memf.unwrap().path())?;
-            let deserialized = deserialize_from::<File>(mem_file);
+            let deserialized: bincode::Result<Memory> = deserialize_from(mem_file);
             match deserialized {
-                Ok(deserialized_memory) => {
-                    self._add_memory(deserialized_memory.clone()); 
-                    mem_vec.push(deserialized_memory.clone())},
+                Ok(deserialized_memory) => self._add_memory(deserialized_memory.clone()), 
                 Err(e) => eprintln!("Error loading memory from file '{}'. Error message:\n{:?}", mem_dir_str, e)
             }
         }
-        Ok(mem_vec)
+        Ok(())
     }
 
     fn _add_memory(&mut self, memory_to_add: Memory) {

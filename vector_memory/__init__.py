@@ -1,4 +1,5 @@
 # from __future__ import annotations
+import os
 from .vector_memory import Memory as _rust_mem
 from .vector_memory import MemoryStore as _rust_mem_store
 
@@ -14,7 +15,7 @@ class Memory(_rust_mem):
         """
         self.text = text
         self.embedding = embedding
-    
+
     def get_text(self) -> str :
         return self.text
 
@@ -35,20 +36,28 @@ class MemoryBank(_rust_mem_store):
             memories (list[Memory], optional): A list of starter memories
         """
         super().__init__()
-        
+        if save_folder_path:
+            self.save_dir = os.path.abspath(save_folder_path)
+        else:
+            self.save_dir = self.save_path
+        if initial_memories:
+            self.add_memories(initial_memories)
     
     def __iter__(self):
         for mem in self.memories:
             yield mem
 
     def load_memories(self, directory_path=None):
-        mem_vec = self._load_memories(directory_path)
-        for mem in mem_vec:
-            self.add_memory(mem)
+        self._load_memories(directory_path)
+        
+        for i,mem in enumerate(self):
+            self.memories[i] = Memory(mem._get_text(), mem._get_embedding())
 
     def save_memories(self, directory_path=None):
         self._save_memories(directory_path)
 
+    def get_save_file_dir(self):
+        return self.save_dir
     
     def add_memory(self, memory: Memory):
         """_summary_
