@@ -1,5 +1,4 @@
 use pyo3::{prelude::*};
-use pyo3::types::{PyString, PyList};
 use rayon::prelude::*;
 use std::{io::Write, fs};
 use std::fs::File;
@@ -112,9 +111,9 @@ impl MemoryStore {
         // if initial_memories
         // println!("Debug Rust: found initial memories of length: {}", &(initial_memories.clone().unwrap_or(Vec::new()).len()));
         MemoryStore { 
-            embedding_length: embedding_length, 
+            embedding_length, 
             memories: Vec::new(), 
-            save_path: save_path
+            save_path
         }
     }
 
