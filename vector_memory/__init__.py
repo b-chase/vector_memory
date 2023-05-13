@@ -48,12 +48,18 @@ class MemoryBank(_rust_mem_store):
             yield mem
 
     def load_memories(self, directory_path=None):
+        if not directory_path:
+            print("No directory specified, using default.")
+            directory_path = self.save_dir
+        print(f'Loading memories from directory: {directory_path}')
         self._load_memories(directory_path)
         
-        for i,mem in enumerate(self):
+        for i,mem in enumerate(self.memories):
             self.memories[i] = Memory(mem._get_text(), mem._get_embedding())
 
-    def save_memories(self, directory_path=None):
+    def save_memories(self, directory_path=None, overwrite_save_dir=False):
+        if overwrite_save_dir:
+            self.save_dir = directory_path
         self._save_memories(directory_path)
 
     def get_save_file_dir(self):

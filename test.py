@@ -53,22 +53,29 @@ def test_torch_similarity():
 
 table = np.zeros((6,6))
 
+memory_list.sort(key=lambda x: x.get_text())
 for i in range(6):
+    mem1 = memory_list[i]
+    print(mem1.get_text().split('\n')[0])
     for j in range(i,6):
         table[i,j] = memory_list[i].test_similarity(memory_list[j])
 
 print(table)
 
-bank.save_memories('test_memory_bank')
+bank.save_memories('test_memory_bank', True)
 
 bank2 = MemoryBank(embedding_lengths, bank.get_save_file_dir())
 
 bank2.load_memories()
 
 bank2_list = [mem for mem in bank2]
-
+bank2_list.sort(key=lambda x: x.get_text())
 table = np.zeros((6,6))
 
 for i in range(6):
+    mem1 = bank2_list[i]
+    print(mem1.get_text().split('\n')[0])
     for j in range(i,6):
         table[i,j] = bank2_list[i].test_similarity(bank2_list[j])
+
+print(table)

@@ -1,3 +1,4 @@
+use pyo3::exceptions::PyIndexError;
 use pyo3::{prelude::*};
 use rayon::prelude::*;
 use std::{io::Write, fs};
@@ -85,6 +86,10 @@ impl Memory {
         PyResult::Ok(self.text.clone())
     }
 
+    fn get_text(&self) -> PyResult<String> {
+        PyResult::Ok(self.text.clone())
+    }
+
     fn _get_embedding(&self) -> PyResult<Vec<f64>> {
         PyResult::Ok(self.embedding.clone())
     }
@@ -93,6 +98,10 @@ impl Memory {
         // cosine similarity calculations
         assert_eq!(self.embed_size, other.embed_size);
         dot_product(&self.embedding, &other.embedding) / (self.magnitude * other.magnitude)
+    }
+
+    fn test_similarity(&self, other: &Memory) -> f64 {
+        self._compare(other)
     }
 }
 
@@ -121,6 +130,16 @@ impl MemoryStore {
         self.memories.len()
     }
 
+    fn __setitem__(&mut self, key: usize, overwriting_mem: Memory) -> PyResult<()> {
+        if key > self.memories.len() {
+            return Err(PyErr::new::<PyIndexError, _>("Error! There are not that many memories stored."))
+        } else if key == self.memories.len() {
+            self._add_memory(overwriting_mem)
+        }
+
+        Ok(())
+    }
+
     fn _save_memories(&self, save_dir: Option<String>) -> std::io::Result<()> {
         // saves memories to the given directory
         let directory_path_str = if save_dir.is_some() {save_dir} else {self.save_path.clone()};
@@ -143,7 +162,6 @@ impl MemoryStore {
                 };
             }
         }
-
         Ok(())
     }
 
@@ -174,7 +192,7 @@ impl MemoryStore {
         self.memories.push(resized);
     }
 
-    fn _top_n_matches(&mut self, query: &Memory, n: usize, must_include_text: Option<&str>) -> Vec<(f64,Memory)> {
+    fn _top_n_matches(&self, query: &Memory, n: usize, must_include_text: Option<&str>) -> Vec<(f64,Memory)> {
         /*
             Returns the top 'n' Memories by cosine similarity of their embedding vectors to the supplied 'query' memory.
             Optionally include a must-have text string, 'must_include_text', to filter results before searching.
