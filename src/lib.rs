@@ -1,11 +1,8 @@
-use pyo3::exceptions::PyIndexError;
-use pyo3::{prelude::*};
+use pyo3::{prelude::*, exceptions::PyIndexError};
 use rayon::prelude::*;
-use std::{io::Write, fs};
-use std::fs::File;
+use std::{io::Write, fs, fs::File, path::Path};
 use serde::{Serialize, Deserialize};
 use bincode::{serialize, deserialize_from};
-use std::path::Path;
 
 
 fn dot_product(a:&Vec<f64>, b:&Vec<f64>) -> f64 {
@@ -82,26 +79,18 @@ impl Memory {
         format!("Text: {}\nEmbedding vector with length: {}", self.text, self.embed_size)
     }
 
-    fn _get_text(&self) -> PyResult<String> {
-        PyResult::Ok(self.text.clone())
-    }
-
     fn get_text(&self) -> PyResult<String> {
         PyResult::Ok(self.text.clone())
     }
 
-    fn _get_embedding(&self) -> PyResult<Vec<f64>> {
+    fn get_embedding(&self) -> PyResult<Vec<f64>> {
         PyResult::Ok(self.embedding.clone())
     }
 
-    fn _compare(&self, other: &Memory) -> f64 {
+    fn test_similarity(&self, other: &Memory) -> f64 {
         // cosine similarity calculations
         assert_eq!(self.embed_size, other.embed_size);
         dot_product(&self.embedding, &other.embedding) / (self.magnitude * other.magnitude)
-    }
-
-    fn test_similarity(&self, other: &Memory) -> f64 {
-        self._compare(other)
     }
 }
 
@@ -110,20 +99,21 @@ impl Memory {
 struct MemoryStore {
     memories: Vec<Memory>, 
     embedding_length: usize, 
-    save_path: Option<String>
+    save_directory: Option<String>
 }
 
 #[pymethods]
 impl MemoryStore {
     #[new]
-    fn new(embedding_length: usize, save_path: Option<String>) -> Self {
+    fn new(embedding_length: usize, initial_memories: Option<Vec<Memory>>, save_directory: Option<String>) -> Self {
         // if initial_memories
         // println!("Debug Rust: found initial memories of length: {}", &(initial_memories.clone().unwrap_or(Vec::new()).len()));
         MemoryStore { 
             embedding_length, 
-            memories: Vec::new(), 
-            save_path
+            memories: initial_memories.unwrap_or_default(), 
+            save_directory
         }
+
     }
 
     fn __len__(&self) -> usize {
@@ -134,21 +124,37 @@ impl MemoryStore {
         if key > self.memories.len() {
             return Err(PyErr::new::<PyIndexError, _>("Error! There are not that many memories stored."))
         } else if key == self.memories.len() {
-            self._add_memory(overwriting_mem)
+            self.add_memory(overwriting_mem)
         }
-
         Ok(())
     }
 
-    fn _save_memories(&self, save_dir: Option<String>) -> std::io::Result<()> {
-        // saves memories to the given directory
-        let directory_path_str = if save_dir.is_some() {save_dir} else {self.save_path.clone()};
-        assert!(directory_path_str.is_some(), "ERROR! This memory store has no specified save location!");
+    // fn __getitem__(&self, key: usize) -> PyResult<Memory> {
+    //     if key >= self.memories.len() {
+    //         return Err(PyErr::new::<PyIndexError, _>("IndexError! There are not that many memories stored."));
+    //     }
+    //     Ok(self.memories[key].clone())
+    // }
 
-        let mem_dir_str = directory_path_str.as_ref().unwrap();
-        if !Path::exists(Path::new(&mem_dir_str)) {
+    fn set_save_folder(&mut self, new_save_directory: String) -> std::io::Result<()> {
+        self.save_directory = Some(new_save_directory);
+        Ok(())
+    }
+
+    fn save_to_folder(&self, save_directory: Option<&str>) -> std::io::Result<()> {
+        // saves memories to the given directory, or default if none specified
+        let mem_dir_str = match save_directory {
+            Some(dir) => dir, 
+            None => match &self.save_directory {
+                Some(dir) => dir, 
+                None => panic!("Saving directory is an empty value!")
+            }
+        };
+
+        if !Path::exists(Path::new(mem_dir_str)) {
             let _ = fs::create_dir(mem_dir_str);
         }
+
         for mem in self.memories.iter() {
             let file_name = compress_embedding(&mem.embedding);
             let file_path_str = format!("{}/{}.vmem", &mem_dir_str, &file_name);
@@ -165,12 +171,16 @@ impl MemoryStore {
         Ok(())
     }
 
-    fn _load_memories(&mut self, from_dir: Option<String>, ) -> std::io::Result<()> {
-
-        let mem_dir_str = match from_dir {
-            Some(dir_string) => dir_string,
-            None => if let Some(self_dir) = &self.save_path {String::from(self_dir)} else {String::from("default_memory_folder")}
-        };
+    fn load_from_folder(&mut self, load_directory: Option<String>, ) -> std::io::Result<()> {
+        // loads memories from the given directory, or the default if none specified
+        let mem_dir_str;
+        if load_directory.is_some() {
+            mem_dir_str = load_directory.unwrap();
+        } else if self.save_directory.is_some() {
+            mem_dir_str = self.save_directory.clone().unwrap();
+        } else {
+            panic!("Saving directory is an empty value!")
+        }
 
         let mem_files = Path::new(&mem_dir_str).read_dir()?;
     
@@ -178,21 +188,27 @@ impl MemoryStore {
             let mem_file = File::open(memf.unwrap().path())?;
             let deserialized: bincode::Result<Memory> = deserialize_from(mem_file);
             match deserialized {
-                Ok(deserialized_memory) => self._add_memory(deserialized_memory.clone()), 
+                Ok(deserialized_memory) => self.add_memory(deserialized_memory.clone()), 
                 Err(e) => eprintln!("Error loading memory from file '{}'. Error message:\n{:?}", mem_dir_str, e)
             }
         }
         Ok(())
     }
 
-    fn _add_memory(&mut self, memory_to_add: Memory) {
+    fn add_memories(&mut self, memories_to_add: Vec<Memory>) -> std::io::Result<()> {
+        self.memories.extend_from_slice(memories_to_add.as_slice());
+
+        Ok(())
+    }
+
+    fn add_memory(&mut self, memory_to_add: Memory) {
         // let new_memory = Memory::new(text, numbers);
         let mut resized = memory_to_add.clone();
         resized.embedding.resize_with(self.embedding_length, || 0.0);
         self.memories.push(resized);
     }
 
-    fn _top_n_matches(&self, query: &Memory, n: usize, must_include_text: Option<&str>) -> Vec<(f64,Memory)> {
+    fn get_top_n_matches(&self, query_memory: &Memory, top_n: usize, must_include_text: Option<&str>) -> Vec<(f64,Memory)> {
         /*
             Returns the top 'n' Memories by cosine similarity of their embedding vectors to the supplied 'query' memory.
             Optionally include a must-have text string, 'must_include_text', to filter results before searching.
@@ -201,13 +217,13 @@ impl MemoryStore {
             .filter_map(|memory| {
                 if must_include_text.is_none() ||
                 memory.text.to_lowercase().contains(&(must_include_text.unwrap().to_lowercase())) {
-                    Some((query._compare(memory), memory.clone()))
+                    Some((query_memory.test_similarity(memory), memory.clone()))
                 } else {None}
             }).collect::<Vec<(f64, Memory)>>();
 
             dist_mem_pairs.sort_by_key(|(dist, _mem)| -(1e6*dist) as i32);
 
-            dist_mem_pairs[0..(n.min(dist_mem_pairs.len()))].to_vec()
+            dist_mem_pairs[0..(top_n.min(dist_mem_pairs.len()))].to_vec()
     }
 
 }

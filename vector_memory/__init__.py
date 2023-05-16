@@ -13,58 +13,85 @@ class Memory(_rust_mem):
             embedding ([float]): 
             embed_vector_len (int, optional): Force the length of embedding vector by truncating or padding with zeroes. Defaults to None.
         """
-        self.text = text
-        self.embedding = embedding
+        super().__init__()
 
     def get_text(self) -> str :
-        return self.text
+        return super().get_text()
 
     def get_embedding(self) -> list[float]:
-        return self.embedding
+        return super().get_embedding()
     
     def test_similarity(self, other_memory) -> float:
-        return self._compare(other_memory)
+        return super().test_similarity(other_memory)
 
 
 
 class MemoryBank(_rust_mem_store):
-    def __init__(self: super, embedding_length, save_folder_path:str=None, initial_memories: list[Memory]=[]):
-        """A bank of 'memories', text with associated vector embeddings, for easy search and retrieval.
+    def __init__(self: super, embedding_length, 
+                 initial_memories: list[Memory]=[],
+                 save_directory:str=None):
+        """A bank of 'memories', text with associated vector embeddings.
+        for easy search and retrieval.
 
         Args:
-            embedding_length (int): The length of memories being added to the store, will force new memories to have this length
+            embedding_length (int): The length of memories being added to the store, 
+                will force new memories to have this length
             memories (list[Memory], optional): A list of starter memories
         """
         super().__init__()
-        if save_folder_path:
-            self.save_dir = os.path.abspath(save_folder_path)
-        else:
-            self.save_dir = self.save_path
-        if initial_memories:
-            self.add_memories(initial_memories)
-    
+        if save_directory:
+            super().set_save_folder(os.path.abspath(save_directory))
+        
+
     def __iter__(self):
         for mem in self.memories:
             yield mem
+    
+    def __getitem__(self, subscript) -> Memory:
+        result = self.memories.__getitem__(subscript)
+        if isinstance(subscript, slice):
+            return list(result)
+        else:
+            return result
+    
 
-    def load_memories(self, directory_path=None):
-        if not directory_path:
-            print("No directory specified, using default.")
-            directory_path = self.save_dir
-        print(f'Loading memories from directory: {directory_path}')
-        self._load_memories(directory_path)
+    def load_from_folder(self, load_directory=None):
+        """load_from_folder
+
+        Args:
+            directory_path (str, optional): the path where the memories should load from.
+                Defaults to memory bank's default storage directory.
+        """
+        print(f'Loading from directory: {self.save_directory}')
+        super().load_from_folder()
+
+
+    def save_to_folder(self, save_directory=None, overwrite_directory=True):
+        """load_from_folder
+
+        Args:
+            directory_path (str, optional): the path where the memories should be saved.
+                Defaults to memory bank's default storage directory.
+            overwrite_save_dir (bool, optional): Default True. 
+                Resets the Memory Bank's save directory to use the supplied directory.
+        """
+        if not save_directory and self.save_directory:
+            save_directory = self.save_directory
+        elif overwrite_directory and save_directory:
+            super().set_save_folder(save_directory)
+        elif overwrite_directory:
+            raise Warning("Cannot overwrite save directory with empty value!")
+        else:
+            raise ValueError("Cannot save to directory, no folder specified!")
         
-        for i,mem in enumerate(self.memories):
-            self.memories[i] = Memory(mem._get_text(), mem._get_embedding())
+        print(f"Saving to folder: {save_directory}")
+        super().save_to_folder(save_directory)
 
-    def save_memories(self, directory_path=None, overwrite_save_dir=False):
-        if overwrite_save_dir:
-            self.save_dir = directory_path
-        self._save_memories(directory_path)
 
     def get_save_file_dir(self):
-        return self.save_dir
+        return self.save_directory
     
+
     def add_memory(self, memory: Memory):
         """_summary_
 
@@ -73,33 +100,33 @@ class MemoryBank(_rust_mem_store):
         """
         if len(memory.get_embedding()) != self.embedding_length:
             print("\nWarning! Received embedding of wrong size. Saved result will be a truncated or padded vector.\n")
-        self._add_memory(memory)
+        super().add_memory(memory)
 
     def add_memories(self, *args):
         """Adds new memories to the memory store.
 
         Args:
-            memory (Memory): _description_
+            1 to N memories to add to the memory store. Also accepts a list.
         """
         mems_to_add = []
         for item in args:
             if hasattr(item, '__iter__'):
-                self.add_memories(item)
+                self.add_memories(*item)
             elif isinstance(item, Memory):
                 mems_to_add.append(item)
             else:
                 print(f"WARNING: this item is not of class Memory and is being skipped:\n{item}")
         
-        for mem in mems_to_add:
-            print(f"Adding new memory:\n{mem}\n")
-            self._add_memory(mem)
+        super().add_memories(mems_to_add)
 
     
-    def search_memories_like(self, query_memory: Memory, top_n=5, must_include_text: str = None):
+    def get_top_n_matches(self, query_memory: Memory, top_n=5, must_include_text: str = None):
         """Returns similar memories to the query memory, default returns 5
 
         Returns:
             list[(similarity_score, Memory)]: The top matches, sorted in descending order, including score.
         """
-        return self._top_n_matches(query_memory, top_n, must_include_text)
+        return super().get_top_n_matches(query_memory, top_n, must_include_text)
+    
+
     
