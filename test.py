@@ -3,13 +3,60 @@ from sentence_transformers import SentenceTransformer
 from vector_memory import Memory, MemoryBank
 import numpy as np
 import torch
+import re
 import timeit
+import os
 
 embedding_model_name = 'sentence-transformers/paraphrase-albert-small-v2'
 embedding_model = SentenceTransformer(embedding_model_name)
 embedding_lengths = 768
 
 bank = MemoryBank(embedding_lengths)
+
+
+def ingest_folder(target_folder: str, split_on_paragraph=False, file_ext_list=['.txt']) -> list[Memory]:
+    """ingest_folder
+
+    Args:
+        target_folder (str): The folder containing text files that you want to ingest.
+        file_ext_list (list[str]): A list of file extensions you want to include. 
+            Defaults to only '.txt' files.
+    """
+    text_inputs = []
+    outputs = []
+    for file in os.listdir(target_folder):
+        file_path = os.path.join(target_folder, file)
+        if not os.path.isdir(file_path) and os.path.splitext(file)[1] in file_ext_list:
+            with open(file_path, 'r') as f:
+                file_text = f.read()
+            if split_on_paragraph:
+                text_parts = re.split(r'[\n\r\.]+', file_text)
+                text_inputs.extend([t.strip() for t in text_parts if re.match('[A-Za-z]', t)])
+            else:
+                text_inputs.append(file_text.strip())
+    
+    for i, t in enumerate(text_inputs):
+        perc = (i+1) / len(text_inputs)
+        perc_bars = int(25*perc)
+        print(f'Progress: ({i}/{len(text_inputs)}) [{perc_bars*"="}{(25-perc_bars)*" "}] {int(perc*100)}%', end='\r')
+        embed_vector = embedding_model.encode(t)
+        outputs.append(Memory(t, embed_vector))
+        # break
+    print('\n')
+    return outputs
+
+bank.add_memories(ingest_folder('samples', True))
+
+
+for mem in bank[0::25]:
+    print("Query Memory: ")
+    print(mem)
+    print("Top Matches:")
+    top_matches = bank.get_top_n_matches(mem,3)
+    print('\n'.join([f'matches with {int(100*x[0])}%: {x[1]}' for x in top_matches]))
+    print('\n\n')
+
+quit()
 
 memory_list = []
 
@@ -62,11 +109,11 @@ for i in range(6):
 
 print(table)
 
-bank.save_memories('test_memory_bank', True)
+bank.save_to_folder('test_memory_bank', True)
 
-bank2 = MemoryBank(embedding_lengths, bank.get_save_file_dir())
+bank2 = MemoryBank(embedding_lengths, save_directory=bank.get_save_file_dir())
 
-bank2.load_memories()
+bank2.load_from_folder()
 
 bank2_list = [mem for mem in bank2]
 bank2_list.sort(key=lambda x: x.get_text())
