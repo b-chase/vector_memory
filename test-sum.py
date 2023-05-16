@@ -11,28 +11,34 @@ def generate_summary(text):
     input_ids = inputs.input_ids.to(device)
     attention_mask = inputs.attention_mask.to(device)
 
-    output = model.generate(input_ids, attention_mask=attention_mask, max_new_tokens=100)
+    output = model.generate(input_ids, attention_mask=attention_mask)
 
     return tokenizer.decode(output[0], skip_special_tokens=True)
 
 
-from transformers import T5Tokenizer, T5ForConditionalGeneration
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
-adv_tokenizer = T5Tokenizer.from_pretrained("google/flan-t5-small")
-adv_model = T5ForConditionalGeneration.from_pretrained("google/flan-t5-small")
+adv_tokenizer = AutoTokenizer.from_pretrained("mrm8488/roberta-med-small2roberta-med-small-finetuned-cnn_daily_mail-summarization")
 
+adv_model = AutoModelForSeq2SeqLM.from_pretrained("mrm8488/roberta-med-small2roberta-med-small-finetuned-cnn_daily_mail-summarization")
 
 def big_summarize_text(text):
     fixed_text = text.replace("\n", "  ")
-    prompt_text = f'Please summarize this text:\n{fixed_text}'
-    
-    inputs = adv_tokenizer(prompt_text, return_tensors="pt")
-    input_ids = inputs.input_ids.to(device)
-    attention_mask = inputs.attention_mask.to(device)
+    prompt_text = f'{fixed_text[0:600]}'
+    print("...getting tokens...")
+    # adv_inputs = adv_tokenizer(prompt_text, return_tensors="pt")
+    # adv_input_ids = adv_inputs.input_ids.to(device)
+    # attention_mask = adv_inputs.attention_mask.to(device)
+    # output = adv_model.generate(input_ids, attention_mask=attention_mask)
+    # return adv_tokenizer.decode(output[0], skip_special_tokens=True)
 
-    output = adv_model.generate(input_ids, attention_mask=attention_mask)
+    adv_input_ids = adv_tokenizer(prompt_text, return_tensors="pt").input_ids
+    print("...generating outputs...")
 
-    return adv_tokenizer.decode(output[0], skip_special_tokens=True)
+    outputs = adv_model.generate(adv_input_ids[0:514])
+    print("...decoding outputs...")
+
+    return adv_tokenizer.decode(outputs[0], skip_special_tokens=True)
   
 
 text_list = []

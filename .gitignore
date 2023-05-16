@@ -15,6 +15,7 @@ __pycache__/
 .Python
 .venv/
 test_memory_bank/
+test_samples/
 env/
 bin/
 build/
