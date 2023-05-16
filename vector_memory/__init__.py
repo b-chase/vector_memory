@@ -22,6 +22,11 @@ class Memory(_rust_mem):
         return super().get_embedding()
     
     def test_similarity(self, other_memory) -> float:
+        """Returns similarity score (cosine metric) between this and another Memory of equal embedding-length.
+
+        Args:
+            other_memory (Memory): the memory to compare against
+        """
         return super().test_similarity(other_memory)
 
 
@@ -88,12 +93,14 @@ class MemoryBank(_rust_mem_store):
         super().save_to_folder(save_directory)
 
 
-    def get_save_file_dir(self):
+    def get_save_file_dir(self) -> str:
+        """Returns the save file directory for this memory store
+        """
         return self.save_directory
     
 
     def add_memory(self, memory: Memory):
-        """_summary_
+        """Adds a single memory to the memory store
 
         Args:
             memories (Memory): memories to add 
@@ -120,7 +127,7 @@ class MemoryBank(_rust_mem_store):
         super().add_memories(mems_to_add)
 
     
-    def get_top_n_matches(self, query_memory: Memory, top_n=5, must_include_text: str = None):
+    def get_top_n_matches(self, query_memory: Memory, top_n=5, must_include_text: str = None) -> list[(float, Memory)]:
         """Returns similar memories to the query memory, default returns 5
 
         Returns:
