@@ -45,7 +45,7 @@ def ingest_folder(target_folder: str, split_on_paragraph=False, file_ext_list=['
     print('\n')
     return outputs
 
-bank.add_memories(ingest_folder('samples', True))
+bank.add_memories(ingest_folder('test_samples', True))
 
 
 for mem in bank[0::25]:
